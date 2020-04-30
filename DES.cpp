@@ -9,7 +9,7 @@
 using namespace std;
 
 
-#define M 100000
+#define M 10000000
 #define getbit(x,y) (((x)>>(y))&0x1)
 
 
@@ -295,7 +295,7 @@ int main(){
     end = clock();
     duration = ((double)(end - start)) / CLOCKS_PER_SEC;
     cout<<"\n耗时"<<duration<<endl;
-    cout << 6.4 / duration << "Mbps\n";
+    cout << 640 / duration << "Mbps\n";
     des.cbcDecode(msg,M,initKey,IV);
     for(int i=0;i<M;i++) assert(msg[i]==answer[i]);
     printf("正确性测试通过");

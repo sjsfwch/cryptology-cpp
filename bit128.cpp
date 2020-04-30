@@ -87,9 +87,3 @@ bit128 bit128::operator>>(int i){
         return bit128(high>>i,(low>>i)|(high<<(64-i)));
     }
 }
-
-int main(){
-    bit128 t(1,0xFFFFFFFFFFFFFFFF);
-    auto x=t>>1;
-    return 0;
-}

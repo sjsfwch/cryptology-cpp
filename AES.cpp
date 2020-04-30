@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include<iostream>
+#include<ctime>
 using namespace std;
-
+#define M 1000000
 typedef u_int8_t u8;
 typedef u_int16_t u16;
 
@@ -324,5 +325,13 @@ int main(){
     aes.cbcDecode(msg4K,key,4096,IV);
     printf("\n4k数据解密后:\n");
     for(int i=0;i<4096;i++) printf("%02x",msg4K[i]);
+
+    clock_t start = clock(), end;
+    double duration;
+    for (int i = 0; i < M; i++) aes.encode(msg,key);
+    end = clock();
+    duration = ((double)(end - start)) / CLOCKS_PER_SEC;
+    cout<<"\n耗时"<<duration<<endl;
+    cout << 128 / duration << "Mbps\n";
     return 0;
 }

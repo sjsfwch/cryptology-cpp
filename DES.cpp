@@ -190,16 +190,18 @@ u64* DES::genKey(u64 initKey){
 u64 DES::F(u64 key,u64 halfData){
     //Expansion
     u64 exHalfData=0;
-    for(int i=0;i<48;i++) exHalfData=bitPermutation(halfData,expansionBox,48);
+    exHalfData=bitPermutation(halfData,expansionBox,48);
     //异或上key
     exHalfData^=key;
     //经过Sbox变换
+    int index;
     u64 tmpRes=0,res=0;
     for(int i=0;i<8;i++){
         tmpRes<<=4;
-        int index = (32 & getbit(exHalfData,i * 6 + 5)) | (16 & getbit(exHalfData,i * 6)) |
-                    (8 & getbit(exHalfData,i * 6 + 4)) | (4 & getbit(exHalfData,i * 6 + 3)) |
-                    (2 & getbit(exHalfData,i * 6 + 2)) | (getbit(exHalfData,i * 6 + 1));
+
+        index = (getbit(exHalfData,i * 6 + 5)<<5) | (getbit(exHalfData,i * 6)<<4) |
+                    (getbit(exHalfData,i * 6 + 4)<<3) | (getbit(exHalfData,i * 6 + 3)<<2) |
+                    (getbit(exHalfData,i * 6 + 2)<<1) | (getbit(exHalfData,i * 6 + 1));
         tmpRes|=sboxes[i][index];
     }
     //permutation
@@ -213,7 +215,7 @@ u64 DES::encryption(u64 data,int encryption=0){
     u64 Li=(data<<32)>>32,Ri=data>>32;//R为高位，L为低位
     u64 lastLi=Li,lastRi=Ri;
     //16轮轮函数
-    if (encryption==0)
+    // if (encryption==0)
         for(int i=0;i<16;i++){
             Li=lastRi;
             Ri=lastLi^F(keys[i],lastRi);
@@ -221,14 +223,14 @@ u64 DES::encryption(u64 data,int encryption=0){
             lastRi=Ri;
 
         }
-    else
-        for(int i=15;i>=0;i--){
-            Li=lastRi;
-            Ri=lastLi^F(keys[i],lastRi);
-            lastLi=Li;
-            lastRi=Ri;
+    // else
+    //     for(int i=15;i>=0;i--){
+    //         Li=lastRi;
+    //         Ri=lastLi^F(keys[i],lastRi);
+    //         lastLi=Li;
+    //         lastRi=Ri;
 
-        }
+    //     }
     //结果为L高位，R低位
     u64 res=(Li<<32)|Ri;
     //inversePermutation
@@ -271,7 +273,7 @@ u64* DES::cbcDecode(u64 data[],int num,u64 initKey,u64 IV){
     for(int i=0;i<num;i++){
         lastCi=Ci;
         Ci=data[i];
-        Pi=encryption(Ci,1)^lastCi;
+        Pi=decryption(Ci)^lastCi;
         data[i]=Pi;
     }
     return data;
@@ -282,7 +284,7 @@ int main(){
     DES des;
     u64 IV=getRandom64bit(),initKey=getRandom64bit();
     des.genKey(initKey);
-    assert(IV==des.encryption(des.encryption(IV),1));
+    assert(IV==des.decryption(des.encryption(IV)));
 
     u64 *msg=new u64[M],*answer=new u64[M];
     for (int i=0;i<M;i++) msg[i]=getRandom64bit();

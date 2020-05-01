@@ -9,10 +9,14 @@
 using namespace std;
 
 
-#define M 10000000
+#define M 1000000
 #define getbit(x,y) (((x)>>(y))&0x1)
 
-
+#define expansion(x) getbit(x, 31) | ((x & 31) << 1) | \
+    (((x >> 3) & 31) << 6) | (((x >> 7) & 31) << 12) | \
+    (((x >> 11) & 31) << 18) | (((x >> 15) & 31) << 24) | \
+    (((x >> 19) & 31) << 30) | (((x >> 23) & 31) << 36) | \
+    (((x >> 27) & 31) << 42) | (getbit(x, 0) << 47)
 
 typedef uint64_t u64;
 
@@ -55,9 +59,10 @@ T bitPermutation(T data,int box[],int boxSize){
     T res=0;
     for (int i=boxSize-1;i>=0;i--){
         res<<=1;
-        res|=getbit(data,box[i]);
+        if (getbit(data,box[i]))
+            res|=1;
     }
-    return data;
+    return res;
 }
 
 class DES {
@@ -137,7 +142,6 @@ public:
     u64 decryption(u64 code);
     u64* cbcEncode(u64 data[],int num,u64 initKey,u64 IV);
     u64* cbcDecode(u64 data[],int num,u64 initKey,u64 IV);
-
 };
 
 DES::DES(){
@@ -167,8 +171,9 @@ u64 DES::initPermutation(u64 data){
 }
 
 u64 DES::inversePermutation(u64 data){
-return bitPermutation(data,inversePermutationBox,64);
+    return bitPermutation(data,inversePermutationBox,64);
 }
+
 
 u64* DES::genKey(u64 initKey){
     //pc1
@@ -191,18 +196,24 @@ u64 DES::F(u64 key,u64 halfData){
     //Expansion
     u64 exHalfData=0;
     exHalfData=bitPermutation(halfData,expansionBox,48);
+    // exHalfData = expansion(halfData);
     //异或上key
     exHalfData^=key;
     //经过Sbox变换
-    int index;
+    int index1,index2;
     u64 tmpRes=0,res=0;
-    for(int i=0;i<8;i++){
-        tmpRes<<=4;
+    for(int i=0;i<4;i+=4){
+        tmpRes<<=8;
 
-        index = (getbit(exHalfData,i * 6 + 5)<<5) | (getbit(exHalfData,i * 6)<<4) |
+        index1 = (getbit(exHalfData,i * 6 + 5)<<5) | (getbit(exHalfData,i * 6)<<4) |
                     (getbit(exHalfData,i * 6 + 4)<<3) | (getbit(exHalfData,i * 6 + 3)<<2) |
                     (getbit(exHalfData,i * 6 + 2)<<1) | (getbit(exHalfData,i * 6 + 1));
-        tmpRes|=sboxes[i][index];
+        
+        index2 = (getbit(exHalfData,(i+1) * 6 + 5)<<5) | (getbit(exHalfData,(i+1) * 6)<<4) |
+                    (getbit(exHalfData,(i+1) * 6 + 4)<<3) | (getbit(exHalfData,(i+1) * 6 + 3)<<2) |
+                    (getbit(exHalfData,(i+1) * 6 + 2)<<1) | (getbit(exHalfData,(i+1) * 6 + 1));
+        
+        tmpRes|=(sboxes[i+1][index2]<<4)|sboxes[i][index1];
     }
     //permutation
     res=bitPermutation(tmpRes,permutationFuncBox,32);
@@ -297,7 +308,7 @@ int main(){
     end = clock();
     duration = ((double)(end - start)) / CLOCKS_PER_SEC;
     cout<<"\n耗时"<<duration<<endl;
-    cout << 640 / duration << "Mbps\n";
+    cout << 64 / duration << "Mbps\n";
     des.cbcDecode(msg,M,initKey,IV);
     for(int i=0;i<M;i++) assert(msg[i]==answer[i]);
     printf("正确性测试通过");

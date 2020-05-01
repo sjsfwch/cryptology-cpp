@@ -5,13 +5,10 @@ using namespace std;
 #define M 1000000
 typedef u_int8_t u8;
 typedef u_int16_t u16;
-
-
-u8 GF28XTime(u8 a){
-    // 最高位有没有1做不同处理，根据pdf的结论，如果有1，需要异或上0x1b
-    return ((a << 1) ^ ((a & 0x80)? 0x1b: 0x00));
-}
-u8 GF28Multiply(u8 a,u8 b){
+#define M 1000000
+#define GF28XTime(a) ((a << 1) ^ ((a & 0x80)? 0x1b: 0x00))
+clock_t s,total=0;
+inline u8 GF28Multiply(u8 a,u8 b){
     u16 tmp[8]={a};
     // 逐步xtime
     for(u8 i=1;i<8;i++){
@@ -102,20 +99,20 @@ void AES::genKey(u8 key[]){
     for(int i=4; i<=43; i++) {
         u8 tmp0, tmp1, tmp2, tmp3;
         if (i % 4 == 0) {
-            tmp0 = Sbox[key[4 * i - 3]] ^ RCon[i / 4];
-            tmp1 = Sbox[key[4 * i - 2]];
-            tmp2 = Sbox[key[4 * i - 1]];
-            tmp3 = Sbox[key[4 * i - 4]];
+            tmp0 = Sbox[key[(i<<2) - 3]] ^ RCon[i / 4];
+            tmp1 = Sbox[key[(i<<2) - 2]];
+            tmp2 = Sbox[key[(i<<2) - 1]];
+            tmp3 = Sbox[key[(i<<2) - 4]];
         } else {
-            tmp0 = key[4 * i - 4];
-            tmp1 = key[4 * i - 3];
-            tmp2 = key[4 * i - 2];
-            tmp3 = key[4 * i - 1];
+            tmp0 = key[(i<<2) - 4];
+            tmp1 = key[(i<<2) - 3];
+            tmp2 = key[(i<<2) - 2];
+            tmp3 = key[(i<<2) - 1];
         }
-        key[4 * i] = tmp0 ^ key[4 * (i - 4)];
-        key[4 * i + 1] = tmp1 ^ key[4 * (i-4) + 1];
-        key[4 * i + 2] = tmp2 ^ key[4 * (i-4) + 2];
-        key[4 * i + 3] = tmp3 ^ key[4 * (i-4) + 3];
+        key[(i<<2)] = tmp0 ^ key[4 * (i - 4)];
+        key[(i<<2) + 1] = tmp1 ^ key[((i-4)<<2) + 1];
+        key[(i<<2) + 2] = tmp2 ^ key[((i-4)<<2) + 2];
+        key[(i<<2) + 3] = tmp3 ^ key[((i-4)<<2) + 3];
     }
 }
 
@@ -142,7 +139,7 @@ void AES::shiftRows(u8 msg[]){
     // 赋值
     for(int i=0;i<4;i++){
         for(int j=0;j<4;j++)
-            msg[4*j+i]=tmp2[i][j];
+            msg[(j<<2)+i]=tmp2[i][j];
     }
 }
 
@@ -158,7 +155,7 @@ void AES::invShiftRows(u8 msg[]){
     // 赋值
     for(int i=0;i<4;i++){
         for(int j=0;j<4;j++)
-            msg[4*j+i]=tmp2[i][j];
+            msg[(j<<2)+i]=tmp2[i][j];
     }
 }
 
@@ -170,10 +167,10 @@ void AES::mixColumns(u8 msg[]){
                        {0x01, 0x01, 0x02, 0x03},
                        {0x03, 0x01, 0x01, 0x02}};
     // 相当于一个矩阵乘法
-    for(int j=0;j<4;j++){
-        for (int i=0;i<4;i++){
+    for(int i=0;i<4;i++){
+        for (int j=0;j<4;j++){
             for(int k=0;k<4;k++)
-                tmp[i+4*j]^=GF28Multiply(matrix[i][k],msg[k+4*j]);
+                tmp[i+(j<<2)]^=GF28Multiply(matrix[i][k],msg[k+(j<<2)]);
         }
     }
     for(int i=0;i<16;i++) msg[i]=tmp[i];
@@ -189,15 +186,15 @@ void AES::invMixColumns(u8 msg[]){
     for(int j=0;j<4;j++){
         for (int i=0;i<4;i++){
             for(int k=0;k<4;k++)
-                tmp[i+4*j]^=GF28Multiply(matrix[i][k],msg[k+4*j]);
+                tmp[i+(j<<2)]^=GF28Multiply(matrix[i][k],msg[k+(j<<2)]);
         }
     }
     for(int i=0;i<16;i++) msg[i]=tmp[i];
 }
 
 void AES::addRoundKey(u8 msg[],int round,u8 key[]){
-    for (int i =16*round;i<16*round+16;i++)
-        msg[i-16*round]^=key[i];
+    for (int i =(round<<4);i<(round<<4)+16;i++)
+        msg[i-(round<<4)]^=key[i];
 }
 
 void AES::encode(u8 msg[],u8 key[]){
@@ -314,17 +311,17 @@ int main(){
         printf("%02x ", msg[i]);
     
 
-    u8 msg4K[4096]={70};
+    u8 msg4K[M]={70};
     printf("\n4k数据加密前:\n");
-    for(int i=0;i<4096;i++){msg4K[i]=70;printf("%02x",msg4K[i]);}
+    // for(int i=0;i<M;i++){msg4K[i]=70;printf("%02x",msg4K[i]);}
     u8 IV[16];
     memset(IV, 0, sizeof(IV));
-    aes.cbcEncode(msg4K,key,4096,IV);
-    printf("\n4k数据加密后:\n");
-    for(int i=0;i<4096;i++) printf("%02x",msg4K[i]);
-    aes.cbcDecode(msg4K,key,4096,IV);
-    printf("\n4k数据解密后:\n");
-    for(int i=0;i<4096;i++) printf("%02x",msg4K[i]);
+    // aes.cbcEncode(msg4K,key,M,IV);
+    // printf("\n4k数据加密后:\n");
+    // for(int i=0;i<M;i++) printf("%02x",msg4K[i]);
+    // aes.cbcDecode(msg4K,key,M,IV);
+    // printf("\n4k数据解密后:\n");
+    // for(int i=0;i<M;i++) printf("%02x",msg4K[i]);
 
     clock_t start = clock(), end;
     double duration;

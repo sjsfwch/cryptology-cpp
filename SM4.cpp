@@ -1,17 +1,36 @@
 #include <stdio.h>
-#include "bit128.cpp"
-
-
+#include <ctime>
+#include <iostream>
+#include <random>
+#include <cstring>
+using namespace std;
+typedef u_int64_t u64;
 typedef u_int32_t u32;
 
 #define circularLeftShift(x,i) ((x >> (32 - i)) | (x << i))
-#define TAO(sbox,data)data= sbox[data & 0xF] | sbox[(data >> 4) & 0xF] |\
-                  sbox[(data >> 8) & 0xF] | sbox[(data>> 12) & 0xF]
+#define TAO(sbox,data)(sbox[data & 0xFF] | (sbox[(data >> 8) & 0xFF]<<8) |\
+                  (sbox[(data >> 16) & 0xFF]<<16) | (sbox[(data >> 24) & 0xFF]<<24))
 
 #define L1(B) B^circularLeftShift(B,2)^circularLeftShift(B,10)^circularLeftShift(B,18)^circularLeftShift(B,24)
 #define L2(B) B^circularLeftShift(B,13)^circularLeftShift(B,23)
+
+#define XOR4(data1, data2)    \
+    do {                      \
+        *data1 ^= *data2; \
+        *(data1+1) ^= *(data2+1); \
+        *(data1+2) ^= *(data2+2); \
+        *(data1+3) ^= *(data2+3); \
+    } while (0)
+
+#define M 400000
+void xor4(u32 data1[],u32 data2[]){
+    data1[0]^=data2[0];
+    data1[1]^=data2[1];
+    data1[2]^=data2[2];
+    data1[3]^=data2[3];
+}
 class SM4{
-u32 sbox[256] = {  
+u32 Sbox[256] = {  
             0xd6,0x90,0xe9,0xfe,0xcc,0xe1,0x3d,0xb7,0x16,0xb6,0x14,0xc2,0x28,0xfb,0x2c,0x05,  
             0x2b,0x67,0x9a,0x76,0x2a,0xbe,0x04,0xc3,0xaa,0x44,0x13,0x26,0x49,0x86,0x06,0x99,  
             0x9c,0x42,0x50,0xf4,0x91,0xef,0x98,0x7a,0x33,0x54,0x0b,0x43,0xed,0xcf,0xac,0x62,  
@@ -41,15 +60,106 @@ u32 sbox[256] = {
             0xa0a7aeb5, 0xbcc3cad1, 0xd8dfe6ed, 0xf4fb0209,  
             0x10171e25, 0x2c333a41, 0x484f565d, 0x646b7279 
         };
+    u32 RK[32];
+    public:
     SM4(){};
     ~SM4(){};
     void tao(u32 data[]);
-    u32* encryption(u32 data[]);
+    void encryption(u32 data[]);
+    void decryption(u32 data[]);
+    void genKey(u32 initKey[]);
+    void cbcEncryption(u32 msg[], int len, u32 IV[]);
+    void cbcDecryption(u32 msg[], int len, u32 IV[]);
 };
 
 void SM4::tao(u32 data[]){
     for (int i = 0; i < 4; i++)
-        data[i] = sbox[data[i] & 0xF] | sbox[(data[i] >> 4) & 0xF] |
-                  sbox[(data[i] >> 8) & 0xF] | sbox[(data[i] >> 12) & 0xF];
+        data[i] = Sbox[data[i] & 0xF] | Sbox[(data[i] >> 4) & 0xF] |
+                  Sbox[(data[i] >> 8) & 0xF] | Sbox[(data[i] >> 12) & 0xF];
 }
 
+void SM4::genKey(u32 initKey[]){
+    u32 tmpRK[36];
+    for(int i=0;i<4;i++) tmpRK[i]=initKey[i]^fk[i];
+    for(int i=4;i<36;i++){
+        tmpRK[i]=tmpRK[i-4]^L2(TAO(Sbox,tmpRK[i-3])^TAO(Sbox,tmpRK[i-2])^TAO(Sbox,tmpRK[i-1])^TAO(Sbox,ck[i]));
+        RK[i-4]=tmpRK[i];
+    }
+    
+}
+
+void SM4::encryption(u32 data[]) {
+    u32 tmpRes[36] = {0};
+    for (int i = 0; i < 4; i++) tmpRes[i] = data[i];
+    for (int i = 0; i < 32; i++) {
+        tmpRes[i + 4] =
+            tmpRes[i] ^ L1(TAO(Sbox, tmpRes[i + 1]) ^ TAO(Sbox, tmpRes[i + 2]) ^
+                           TAO(Sbox, tmpRes[i + 3]) ^ TAO(Sbox, RK[i]));
+    }
+    data[0] = tmpRes[35];
+    data[1] = tmpRes[34];
+    data[2] = tmpRes[33];
+    data[3] = tmpRes[32];
+}
+
+void SM4::decryption(u32 data[]) {
+    u32 tmpRes[36] = {0};
+    for (int i = 0; i < 4; i++) tmpRes[i] = data[i];
+    for (int i = 0; i < 32; i++) {
+        tmpRes[i + 4] =
+            tmpRes[i] ^ L1(TAO(Sbox, tmpRes[i + 1]) ^ TAO(Sbox, tmpRes[i + 2]) ^
+                           TAO(Sbox, tmpRes[i + 3]) ^ TAO(Sbox, RK[31 - i]));
+    }
+    data[0] = tmpRes[35];
+    data[1] = tmpRes[34];
+    data[2] = tmpRes[33];
+    data[3] = tmpRes[32];
+}
+
+void SM4::cbcEncryption(u32 msg[],int len, u32 IV[]){
+    u32 Ci[4]={IV[0],IV[1],IV[2],IV[3]};
+    for (int i=0;i<len/4;i++){
+        XOR4(Ci,(msg+4*i)); //Ci^=data[i]
+        encryption(Ci);
+        memcpy(msg+4*i,Ci,sizeof(Ci)); //data[i]=Ci
+    }
+}
+
+void SM4::cbcDecryption(u32 msg[],int len, u32 IV[]){
+    u32 Ci[4]={IV[0],IV[1],IV[2],IV[3]};
+    u32 lastCi[4],decodeCi[4];
+    for (int i=0;i<len/4;i++){
+        memcpy(lastCi,Ci,sizeof(Ci)); //lastCi=Ci
+        memcpy(Ci,msg+4*i,sizeof(Ci)); //Ci=data[i]
+        memcpy(decodeCi,Ci,sizeof(Ci));
+        decryption(decodeCi); 
+        XOR4(lastCi,decodeCi);
+        memcpy(msg+4*i,lastCi,sizeof(lastCi));
+    }
+}
+
+int main(){
+    u32 key[4],data[M],answer[M];
+    u32 test1[4]={213,13,12,13},test2[4];
+    for (int i=0;i<4;i++) test1[i]=rand(),key[i]=rand();
+    memcpy(test2,test1,sizeof(test1));
+    u32 IV[4]={23,232,31,31};
+    for (int i=0;i<M;i++) data[i]=rand();
+    memcpy(answer,data,sizeof(data));
+    SM4 sm4;
+    sm4.genKey(key);
+    sm4.encryption(test1);
+    sm4.decryption(test1);
+    for(int i=0;i<4;i++) assert(test1[i]==test2[i]);
+    clock_t start = clock(), end;
+    sm4.cbcEncryption(data,M,IV);
+    double duration;
+    end = clock();
+    duration = ((double)(end - start)) / CLOCKS_PER_SEC;
+    cout<<"\n耗时"<<duration<<endl;
+    cout << 12.8 / duration << "Mbps\n";
+    sm4.cbcDecryption(data,M,IV);
+    for(int i=0;i<M;i++) assert(data[i]==answer[i]);
+    printf("正确性测试通过");
+    return 0;
+}

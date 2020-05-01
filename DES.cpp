@@ -195,12 +195,12 @@ u64* DES::genKey(u64 initKey){
 u64 DES::F(u64 key,u64 halfData){
     //Expansion
     u64 exHalfData=0;
-    exHalfData=bitPermutation(halfData,expansionBox,48);
-    // exHalfData = expansion(halfData);
+    // exHalfData=bitPermutation(halfData,expansionBox,48);
+    exHalfData = expansion(halfData);
     //异或上key
     exHalfData^=key;
     //经过Sbox变换
-    int index1,index2;
+    int index1,index2,index3,index4,index5,index6,index7,index8;
     u64 tmpRes=0,res=0;
     for(int i=0;i<4;i+=4){
         tmpRes<<=8;
@@ -215,7 +215,19 @@ u64 DES::F(u64 key,u64 halfData){
         
         tmpRes|=(sboxes[i+1][index2]<<4)|sboxes[i][index1];
     }
-    //permutation
+    // index1 = (getbit(exHalfData,5)<<5) | ((exHalfData&1)<<4) | ((exHalfData>>1)&0xF);
+    // index2 = (getbit(exHalfData>>6,5)<<5) | (((exHalfData>>6)&1)<<4) | ((exHalfData>>7)&0xF);
+    // index3 = (getbit(exHalfData>>12,5)<<5) | (((exHalfData>>12)&1)<<4) | ((exHalfData>>13)&0xF);
+    // index4 = (getbit(exHalfData>>18,5)<<5) | (((exHalfData>>18)&1)<<4) | ((exHalfData>>19)&0xF);
+    // index5 = (getbit(exHalfData>>24,5)<<5) | (((exHalfData>>24)&1)<<4) | ((exHalfData>>25)&0xF);
+    // index6 = (getbit(exHalfData>>30,5)<<5) | (((exHalfData>>30)&1)<<4) | ((exHalfData>>31)&0xF);
+    // index7 = (getbit(exHalfData>>36,5)<<5) | (((exHalfData>>36)&1)<<4) | ((exHalfData>>37)&0xF);
+    // index8 = (getbit(exHalfData>>42,5)<<5) | (((exHalfData>>42)&1)<<4) | ((exHalfData>>43)&0xF);
+    tmpRes |= (sboxes[0][index1]) | (sboxes[1][index2]<<4);/* |
+              (sboxes[2][index3] << 8) | (sboxes[3][index4] << 12) |
+              (sboxes[4][index5] << 16) | (sboxes[5][index6] << 20) |
+              (sboxes[6][index7] << 24) | (sboxes[7][index8] << 28)*/
+    // permutation
     res=bitPermutation(tmpRes,permutationFuncBox,32);
     return res;
 }
@@ -280,12 +292,11 @@ u64* DES::cbcEncode(u64 data[],int num,u64 initKey,u64 IV){
 }
 
 u64* DES::cbcDecode(u64 data[],int num,u64 initKey,u64 IV){
-    u64 Ci=IV,lastCi=IV,Pi=0;
+    u64 Ci=IV,lastCi=IV;
     for(int i=0;i<num;i++){
         lastCi=Ci;
         Ci=data[i];
-        Pi=decryption(Ci)^lastCi;
-        data[i]=Pi;
+        data[i]=decryption(Ci)^lastCi;
     }
     return data;
 }

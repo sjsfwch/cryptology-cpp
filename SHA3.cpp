@@ -4,6 +4,7 @@
 #include<math.h>
 #include<iostream>
 #include <assert.h>
+#include <bitset>
 #define L64(x, y) (((x) << (y)) | ((x) >> (64 - (y))))
 // #define char2u64(a,b,c,d,e,f,g,h) ((u64(a)<<56)|(u64(b)<<48)|(u64(c)<<40)|(u64(d)<<32)|(u64(e)<<24)|(u64(f)<<16)|(u64(g)<<8)|u64(h))
 #define char2u64(a,b,c,d,e,f,g,h) ((u64(a))|(u64(b)<<8)|(u64(c)<<16)|(u64(d)<<24)|(u64(e)<<32)|(u64(f)<<40)|(u64(g)<<48)|(u64(h)<<56))
@@ -14,7 +15,16 @@ typedef u_int8_t u8;
 
 using namespace std;
 
-
+template <typename T>
+u64 reversebit(T a){
+    int len=sizeof(a)*8;
+    T res=0;
+    for(int i=0;i<len;i++){
+        res<<=1;
+        res|=getbit(a,i);
+    }
+    return res;
+}
 
 class SHA3_256{
     u64 A[5][5];
@@ -32,7 +42,7 @@ class SHA3_256{
     ~SHA3_256(){}
     vector<u8> padding(vector<u8> &s);
     vector<u8> sponge(vector<u8> s);
-    void keccak();
+    void keccak(const void* data);
     void convertS2A();
     void convertA2S();
     void initRC();
@@ -56,6 +66,7 @@ void SHA3_256::convertS2A(){
     for(int y=0;y<5;y++){
         for(int x=0;x<5;x++){
             A[x][y]=char2u64(S[start],S[start+1],S[start+2],S[start+3],S[start+4],S[start+5],S[start+6],S[start+7]);
+            A[x][y]=reversebit(A[x][y]);
             start+=8;
         }
     }
@@ -72,6 +83,7 @@ void SHA3_256::convertA2S(){
             // S[x+5*y+5]=(A[x][y]>>16)&0xFF;
             // S[x+5*y+6]=(A[x][y]>>8)&0xFF;
             // S[x+5*y+7]=A[x][y]&0xFF;
+            A[x][y]=reversebit(A[x][y]);
             S[x+5*y]=(A[x][y])&0xFF;
             S[x+5*y+1]=(A[x][y]>>8)&0xFF;
             S[x+5*y+2]=(A[x][y]>>16)&0xFF;
@@ -80,11 +92,20 @@ void SHA3_256::convertA2S(){
             S[x+5*y+5]=(A[x][y]>>40)&0xFF;
             S[x+5*y+6]=(A[x][y]>>48)&0xFF;
             S[x+5*y+7]=(A[x][y]>>56)&0xFF;
+            
         }
     }
 }
 
-void SHA3_256::keccak(){
+void SHA3_256::keccak(const void* data){
+    // 构建A
+    uint64_t* data64 = (uint64_t*) data;
+    for(int y=0;y<5;y++){
+        for(int x=0;x<5;x++){
+            A[x][y]=data64[x+5*y];
+        }
+    }
+
     u64 C[5]={0},D[5]={0},tmpA[5][5];;
     for (int r = 0; r < 24; r++) {
         // theta变换
@@ -121,8 +142,17 @@ void SHA3_256::keccak(){
         }
         // iota变换
         A[0][0]^=RC[r];
-        convertA2S();
+        // convertA2S();
     }
+    // 新的A写回到S
+    u64 newdata[25];
+    for(int y=0;y<5;y++){
+        for(int x=0;x<5;x++){
+            data64[x+5*y]=A[x][y];
+        }
+    }
+    u8* data8=(u8*)data64;
+    for(int i=0;i<200;i++) S[i]=data8[i];
 }
 
 void SHA3_256::initRC(){
@@ -172,8 +202,8 @@ vector<u8> SHA3_256::sponge(vector<u8> s){
         }
         start+=rByte;
         for(int j=rByte;j<200;j++) S[j]^=tmp[j];
-        convertS2A();
-        keccak();
+        // convertS2A();
+        keccak(S);
     }
     // squeezing
     for(int i=0;i<rByte;i++) buffer[i]=S[i];
@@ -183,7 +213,6 @@ vector<u8> SHA3_256::sponge(vector<u8> s){
 
 int main(){
     vector<u8> s(5,49);
-
     SHA3_256 sha3;
     clock_t start = clock(), end;
     double duration;

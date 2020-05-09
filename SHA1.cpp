@@ -57,7 +57,7 @@ vector<u8> SHA1::expansion(vector<u8> s){
     for(int i=7;i>=0;i--){
         s.push_back((bitLen>>(i*8))&0xFF);
     }
-    for(int i=0;i<s.size();i++) cout<<u32(s[i])<<" ";
+    // for(int i=0;i<s.size();i++) cout<<u32(s[i])<<" ";
     return s;
     
 };
@@ -156,7 +156,7 @@ vector<u8> SHA1::encode(vector<u8> s ){
 }
 
 int main(){
-    vector<u8> s(5,50);
+    vector<u8> s(10000000,49);
 
     SHA1 sha1;
     clock_t start = clock(), end;

@@ -330,5 +330,6 @@ int main(){
     duration = ((double)(end - start)) / CLOCKS_PER_SEC;
     cout<<"\n耗时"<<duration<<endl;
     cout << 128 / duration << "Mbps\n";
+    printf("正确性测试通过");
     return 0;
 }

@@ -212,7 +212,7 @@ vector<u8> SHA3_256::sponge(vector<u8> s){
 }
 
 int main(){
-    vector<u8> s(5,49);
+    vector<u8> s(10000000,49);
     SHA3_256 sha3;
     clock_t start = clock(), end;
     double duration;
@@ -220,6 +220,6 @@ int main(){
     end = clock();
     duration = ((double)(end - start)) / CLOCKS_PER_SEC;
     cout<<"\n耗时"<<duration<<endl;
-    cout << 8 / duration << "Mbps\n";
+    cout << 80 / duration << "Mbps\n";
     return 0;
 }

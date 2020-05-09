@@ -76,7 +76,7 @@ vector<u8> SM3::encode(vector<u8> s){
             SS1=L(L(A,12)+E+L(T1,round),7);
             SS2=SS1^L(A,12);
             TT1=FF1(A,B,C)+D+SS2+W1[round];
-            TT2=GG1(E,F,G)+G+SS1+W[round];
+            TT2=GG1(E,F,G)+H+SS1+W[round];
             D=C;
             C=L(B,9);
             B=A;
@@ -87,10 +87,10 @@ vector<u8> SM3::encode(vector<u8> s){
             E=P0(TT2);
         }
         for(int round=16;round<64;round++){
-            SS1=L(L(A,12)+E+L(T2,round),7);
+            SS1=L(L(A,12)+E+L(T2,round%32),7);
             SS2=SS1^L(A,12);
             TT1=FF2(A,B,C)+D+SS2+W1[round];
-            TT2=GG2(E,F,G)+G+SS1+W[round];
+            TT2=GG2(E,F,G)+H+SS1+W[round];
             D=C;
             C=L(B,9);
             B=A;
@@ -100,16 +100,16 @@ vector<u8> SM3::encode(vector<u8> s){
             F=E;
             E=P0(TT2);
         }
-        A=A1+A;
-        B=B1+B;
-        C=C1+C;
-        D=D1+D;
-        E=E1+E;
-        F=F1+F;
-        G=G1+G;
-        H=H1+H;
+        A^=A1;
+        B^=B1;
+        C^=C1;
+        D^=D1;
+        E^=E1;
+        F^=F1;
+        G^=G1;
+        H^=H1;
     }
-    // printf("%08x%08x%08x%08x%08x%08x%08x%08x\n\n", A, B, C, D, E,F,G,H);
+    printf("%08x%08x%08x%08x%08x%08x%08x%08x\n\n", A, B, C, D, E,F,G,H);
     vector<u8> res;
     for(int i=3;i>=0;i--) res.push_back((A>>(i*8))&0xFF);
     for(int i=3;i>=0;i--) res.push_back((B>>(i*8))&0xFF);
@@ -123,7 +123,7 @@ vector<u8> SM3::encode(vector<u8> s){
 }
 
 int main(){
-    vector<u8> s(1000000,49);
+    vector<u8> s(10000000,49);
     SM3 sm3;
     clock_t start = clock(), end;
     double duration;
@@ -131,6 +131,6 @@ int main(){
     end = clock();
     duration = ((double)(end - start)) / CLOCKS_PER_SEC;
     cout<<"\n耗时"<<duration<<endl;
-    cout << 8 / duration << "Mbps\n";
+    cout << 80 / duration << "Mbps\n";
     return 0;
 }
